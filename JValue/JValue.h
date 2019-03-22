@@ -13,25 +13,15 @@
 
 #ifdef __cplusplus_winrt
 namespace WDJ = Windows::Data::Json;
-#define STRING_T Platform::String^
-#define WINRT_OBJ_REF ^
-#define DEREF ->
-#define PROPERTY_SUFFIX
-#define TO_PLAT_STRING(value) ref new Platform::String(value.data())
-#define WCHAR_TO_PLAT_STRING(value) ref new Platform::String(value)
-#define TO_WSTRING(value) value->Data()
-#define INSTANTIATE ref new
+#define WINRT_OBJ_REF(type) type^
+#define WINRT_OBJ_CONST_REF(type) type^
+#define DETAIL_NS detail::cx
 #elif defined(CPPWINRT_VERSION)
 #include <winrt/Windows.Data.Json.h>
 namespace WDJ = winrt::Windows::Data::Json;
-#define STRING_T winrt::hstring
-#define WINRT_OBJ_REF
-#define DEREF .
-#define PROPERTY_SUFFIX ()
-#define TO_PLAT_STRING(value) value
-#define WCHAR_TO_PLAT_STRING(value) value
-#define TO_WSTRING(value) value.data()
-#define INSTANTIATE
+#define WINRT_OBJ_REF(type) type
+#define WINRT_OBJ_CONST_REF(type) const type&
+#define DETAIL_NS detail::cppwinrt
 #endif
 
 class JValue;
@@ -58,27 +48,235 @@ std::bool_constant<std::is_same_v<std::decay_t<_Ty>, wchar_t*>
 
 template<class _Ty>
 using is_ijsonvalue =
-std::bool_constant<std::is_same_v<std::decay_t<_Ty>, WDJ::IJsonValue WINRT_OBJ_REF>
-    || std::is_same_v<std::decay_t<_Ty>, WDJ::JsonValue WINRT_OBJ_REF>
-    || std::is_same_v<std::decay_t<_Ty>, WDJ::JsonObject WINRT_OBJ_REF>
+std::bool_constant<std::is_same_v<std::decay_t<_Ty>, WINRT_OBJ_REF(WDJ::IJsonValue)>
+    || std::is_same_v<std::decay_t<_Ty>, WINRT_OBJ_REF(WDJ::JsonValue)>
+    || std::is_same_v<std::decay_t<_Ty>, WINRT_OBJ_REF(WDJ::JsonObject)>
 >;
+
+#ifdef __cplusplus_winrt
+namespace detail::cx
+{
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) Parse(const std::wstring& json)
+    {
+        return WDJ::JsonValue::Parse(ref new Platform::String(json.data()));
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateNumberValue(double value)
+    {
+        return WDJ::JsonValue::CreateNumberValue(value);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateBooleanValue(bool value)
+    {
+        return WDJ::JsonValue::CreateBooleanValue(value);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(const std::wstring& value)
+    {
+        return WDJ::JsonValue::CreateStringValue(ref new Platform::String(value.data()));
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateNullValue()
+    {
+        return WDJ::JsonValue::CreateNullValue();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonArray) CreateJsonArray()
+    {
+        return ref new WDJ::JsonArray();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonObject) CreateJsonObject()
+    {
+        return ref new WDJ::JsonObject();
+    }
+
+    inline void Append(WINRT_OBJ_CONST_REF(WDJ::JsonArray) target, WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        target->Append(value);
+    }
+
+    inline void Insert(WINRT_OBJ_CONST_REF(WDJ::JsonObject) target, const std::wstring& key, WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        target->Insert(ref new Platform::String(key.data()), value);
+    }
+
+    inline std::wstring GetString(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->GetString()->Data();
+    }
+
+    inline double GetNumber(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->GetNumber();
+    }
+
+    inline bool GetBoolean(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->GetBoolean();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonArray) GetArray(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->GetArray();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonObject) GetObject(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->GetObject();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) GetAt(WINRT_OBJ_CONST_REF(WDJ::JsonArray) target, uint32_t index)
+    {
+        return target->GetAt(index);
+    }
+
+    inline bool HasKey(WINRT_OBJ_CONST_REF(WDJ::JsonObject) target, const std::wstring& key)
+    {
+        return target->HasKey(ref new Platform::String(key.data()));
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) GetNamedValue(WINRT_OBJ_CONST_REF(WDJ::JsonObject) target, const std::wstring& key)
+    {
+        return target->GetNamedValue(ref new Platform::String(key.data()));
+    }
+
+    inline uint32_t Size(WINRT_OBJ_CONST_REF(WDJ::JsonArray) target)
+    {
+        return target->Size;
+    }
+
+    inline WDJ::JsonValueType ValueType(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->ValueType;
+    }
+
+    inline std::wstring Stringify(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->Stringify()->Data();
+    }
+}
+#elif defined(CPPWINRT_VERSION)
+namespace detail::cppwinrt
+{
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) Parse(const std::wstring& json)
+    {
+        return WDJ::JsonValue::Parse(json);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateNumberValue(double value)
+    {
+        return WDJ::JsonValue::CreateNumberValue(value);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateBooleanValue(bool value)
+    {
+        return WDJ::JsonValue::CreateBooleanValue(value);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(const std::wstring& value)
+    {
+        return WDJ::JsonValue::CreateStringValue(value);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateNullValue()
+    {
+        return WDJ::JsonValue::CreateNullValue();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonArray) CreateJsonArray()
+    {
+        return WDJ::JsonArray();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonObject) CreateJsonObject()
+    {
+        return WDJ::JsonObject();
+    }
+
+    inline void Append(WINRT_OBJ_CONST_REF(WDJ::JsonArray) target, WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        target.Append(value);
+    }
+
+    inline void Insert(WINRT_OBJ_CONST_REF(WDJ::JsonObject) target, const std::wstring& key, WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        target.Insert(key, value);
+    }
+
+    inline std::wstring GetString(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.GetString().data();
+    }
+
+    inline double GetNumber(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.GetNumber();
+    }
+
+    inline bool GetBoolean(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.GetBoolean();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonArray) GetArray(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.GetArray();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::JsonObject) GetObject(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.GetObject();
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) GetAt(WINRT_OBJ_CONST_REF(WDJ::JsonArray) target, uint32_t index)
+    {
+        return target.GetAt(index);
+    }
+
+    inline bool HasKey(WINRT_OBJ_CONST_REF(WDJ::JsonObject) target, const std::wstring& key)
+    {
+        return target.HasKey(key);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) GetNamedValue(WINRT_OBJ_CONST_REF(WDJ::JsonObject) target, const std::wstring& key)
+    {
+        return target.GetNamedValue(key);
+    }
+
+    inline uint32_t Size(WINRT_OBJ_CONST_REF(WDJ::JsonArray) target)
+    {
+        return target.Size();
+    }
+
+    inline WDJ::JsonValueType ValueType(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.ValueType();
+    }
+
+    inline std::wstring Stringify(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.Stringify().data();
+    }
+}
+#endif
 
 class JValue
 {
 public:
     static JValue Parse(std::wstring json)
     {
-        return JValue(WDJ::JsonValue::Parse(TO_PLAT_STRING(json)));
+        return JValue(DETAIL_NS::Parse(json));
     }
 
-    JValue(WDJ::IJsonValue WINRT_OBJ_REF jsonValue)
+    JValue(WINRT_OBJ_REF(WDJ::IJsonValue) jsonValue)
         : _jsonValue(jsonValue)
     {
     }
 
     template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     JValue(T value)
-        : _jsonValue{ WDJ::JsonValue::CreateNumberValue(static_cast<double>(value)) }
+        : _jsonValue{ DETAIL_NS::CreateNumberValue(static_cast<double>(value)) }
     {
     }
 
@@ -96,12 +294,12 @@ public:
     // This can't be marked as explicit, otherwise implicit conversions from bool to JValue
     // won't work, which means methods accepting JValue won't be able to accept bool values.
     JValue(bool value)
-        : _jsonValue{ WDJ::JsonValue::CreateBooleanValue(value) }
+        : _jsonValue{ DETAIL_NS::CreateBooleanValue(value) }
     {
     }
 
     JValue(std::wstring value)
-        : _jsonValue(WDJ::JsonValue::CreateStringValue(TO_PLAT_STRING(value)))
+        : _jsonValue(DETAIL_NS::CreateStringValue(value))
     {
     }
 
@@ -109,7 +307,7 @@ public:
     // incorrectly deduced as booleans by the compiler, which gets picked over automatic
     // conversion to std::wstring
     JValue(const wchar_t* value)
-        : _jsonValue{ WDJ::JsonValue::CreateStringValue(WCHAR_TO_PLAT_STRING(value)) }
+        : _jsonValue{ DETAIL_NS::CreateStringValue(value) }
     {
     }
 
@@ -131,32 +329,32 @@ public:
     template<typename T>
     JValue(std::vector<T> arrayValue)
     {
-        auto jarray = INSTANTIATE WDJ::JsonArray();
+        auto jarray = DETAIL_NS::CreateJsonArray();
         std::for_each(arrayValue.begin(), arrayValue.end(), [jarray](JValue value) {
-            jarray DEREF Append(value);
+            DETAIL_NS::Append(jarray, value);
         });
         _jsonValue = jarray;
     }
 
     JValue(nullptr_t)
-        : _jsonValue{ WDJ::JsonValue::CreateNullValue() }
+        : _jsonValue{ DETAIL_NS::CreateNullValue() }
     {
     }
 
-    operator WDJ::IJsonValue WINRT_OBJ_REF() const
+    operator WINRT_OBJ_REF(WDJ::IJsonValue)() const
     {
         return _jsonValue;
     }
 
     operator std::wstring() const
     {
-        return TO_WSTRING(_jsonValue DEREF GetString());
+        return DETAIL_NS::GetString(_jsonValue);
     }
 
     template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     operator T() const
     {
-        return static_cast<T>(_jsonValue DEREF GetNumber());
+        return static_cast<T>(DETAIL_NS::GetNumber(_jsonValue));
     }
 
     // To support this conversion, implement a method in the namespace of the object you want to deserialize
@@ -173,17 +371,17 @@ public:
     // numerical overload, as is_arithmetic is true for bool
     operator bool() const
     {
-        return _jsonValue DEREF GetBoolean();
+        return DETAIL_NS::GetBoolean(_jsonValue);
     }
 
     template<typename TElement>
     operator std::vector<TElement>() const
     {
-        auto jsonArray = _jsonValue DEREF GetArray();
+        auto jsonArray = DETAIL_NS::GetArray(_jsonValue);
         std::vector<TElement> valueVector;
-        for (unsigned int i = 0; i < jsonArray DEREF Size PROPERTY_SUFFIX; i++)
+        for (unsigned int i = 0; i < DETAIL_NS::Size(jsonArray); i++)
         {
-            WDJ::IJsonValue WINRT_OBJ_REF value = jsonArray DEREF GetAt(i);
+            WINRT_OBJ_REF(WDJ::IJsonValue) value = DETAIL_NS::GetAt(jsonArray);
             valueVector.push_back(JValue(value));
         }
 
@@ -192,11 +390,11 @@ public:
 
     operator std::vector<JValue>() const
     {
-        auto jsonArray = _jsonValue DEREF GetArray();
+        auto jsonArray = DETAIL_NS::GetArray(_jsonValue);
         std::vector<JValue> valueVector;
-        for (unsigned int i = 0; i < jsonArray DEREF Size PROPERTY_SUFFIX; i++)
+        for (unsigned int i = 0; i < DETAIL_NS::Size(jsonArray); i++)
         {
-            WDJ::IJsonValue WINRT_OBJ_REF value = jsonArray DEREF GetAt(i);
+            WINRT_OBJ_REF(WDJ::IJsonValue) value = DETAIL_NS::GetAt(jsonArray, i);
             valueVector.push_back(JValue(value));
         }
 
@@ -313,26 +511,26 @@ public:
     // value L"", instead of throwing when attempting to lookup "secondKey".
     JValue operator[](const wchar_t* key) const
     {
-        auto pKey = WCHAR_TO_PLAT_STRING(key);
-        if (IsValueType(WDJ::JsonValueType::Object) && _jsonValue DEREF GetObject() DEREF HasKey(pKey))
+        std::wstring pKey = key;
+        if (IsValueType(WDJ::JsonValueType::Object) && DETAIL_NS::HasKey(DETAIL_NS::GetObject(_jsonValue), pKey))
         {
-            return _jsonValue DEREF GetObject() DEREF GetNamedValue(pKey);
+            return DETAIL_NS::GetNamedValue(DETAIL_NS::GetObject(_jsonValue), pKey);
         }
         else
         {
-            return WDJ::JsonValue::CreateNullValue();
+            return DETAIL_NS::CreateNullValue();
         }
     }
 
-    JValue operator[](int index) const
+    JValue operator[](uint32_t index) const
     {
-        if (IsValueType(WDJ::JsonValueType::Array) && ((int)_jsonValue DEREF GetArray() DEREF Size PROPERTY_SUFFIX) > index)
+        if (IsValueType(WDJ::JsonValueType::Array) && DETAIL_NS::Size(DETAIL_NS::GetArray(_jsonValue)) > index)
         {
-            return _jsonValue DEREF GetArray() DEREF GetAt(index);
+            return DETAIL_NS::GetAt(DETAIL_NS::GetArray(_jsonValue), index);
         }
         else
         {
-            return WDJ::JsonValue::CreateNullValue();
+            return DETAIL_NS::CreateNullValue();
         }
     }
 
@@ -343,7 +541,7 @@ public:
             throw std::logic_error("JValue is not a JSON object");
         }
 
-        _jsonValue DEREF GetObject() DEREF Insert(WCHAR_TO_PLAT_STRING(key), value);
+        DETAIL_NS::Insert(DETAIL_NS::GetObject(_jsonValue), key, value);
     }
 
     void Append(JValue value)
@@ -353,28 +551,28 @@ public:
             throw std::logic_error("JValue is not a JSON array");
         }
 
-        _jsonValue DEREF GetArray() DEREF Append(value);
+        DETAIL_NS::Append(DETAIL_NS::GetArray(_jsonValue), value);
     }
 
     bool IsNull() const
     {
-        return _jsonValue == nullptr || _jsonValue DEREF ValueType PROPERTY_SUFFIX == WDJ::JsonValueType::Null;
+        return _jsonValue == nullptr || DETAIL_NS::ValueType(_jsonValue) == WDJ::JsonValueType::Null;
     }
 
     bool IsValueType(WDJ::JsonValueType valueType) const
     {
-        return _jsonValue != nullptr && _jsonValue DEREF ValueType PROPERTY_SUFFIX == valueType;
+        return _jsonValue != nullptr && DETAIL_NS::ValueType(_jsonValue) == valueType;
     }
 
     JValue(std::initializer_list<std::pair<std::wstring, JValue>> map)
     {
-        WDJ::JsonObject WINRT_OBJ_REF jObject = INSTANTIATE WDJ::JsonObject();
+        WINRT_OBJ_REF(WDJ::JsonObject) jObject = DETAIL_NS::CreateJsonObject();
         for (auto& pair : map)
         {
             JValue jvalue = pair.second;
             if (!jvalue._omit)
             {
-                jObject DEREF Insert(TO_PLAT_STRING(pair.first), jvalue);
+                DETAIL_NS::Insert(jObject, pair.first, jvalue);
             }
         }
 
@@ -383,19 +581,15 @@ public:
 
     std::wstring ToString() const
     {
-        return TO_WSTRING(_jsonValue DEREF Stringify());
+        return DETAIL_NS::Stringify(_jsonValue);
     }
 private:
-    WDJ::IJsonValue  WINRT_OBJ_REF _jsonValue;
+    WINRT_OBJ_REF(WDJ::IJsonValue) _jsonValue;
     bool _omit = false;
 };
 
-#undef STRING_T
 #undef WINRT_OBJ_REF
-#undef DEREF
-#undef PROPERTY_SUFFIX
-#undef TO_PLAT_STRING
-#undef WCHAR_TO_PLAT_STRING
-#undef TO_WSTRING
+#undef WINRT_OBJ_CONST_REF
+#undef DETAIL_NS
 
 #endif // defined(__cplusplus_winrt) || defined(CPPWINRT_VERSION)

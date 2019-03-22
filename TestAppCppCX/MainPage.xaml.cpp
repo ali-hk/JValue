@@ -30,6 +30,7 @@ void MainPage::Button_Click(Platform::Object^ sender, Windows::UI::Xaml::RoutedE
     JValue test = JValue::Parse(LR"|({ "test": { "value1": true, "value2": "yes" } })|");
     bool result = test[L"test"][L"value1"];
     OutputDebugString(std::to_wstring(result).data());
+    OutputDebugString(test.ToString().data());
 
     bool testOpt = test[L"test"][L"value1"].value_or(false);
     JValue test2 =
@@ -45,6 +46,7 @@ void MainPage::Button_Click(Platform::Object^ sender, Windows::UI::Xaml::RoutedE
             }
         }
     };
+    OutputDebugString(test2.ToString().data());
 
     int x = test2[L"root"][L"Key"][L"SubKey"];
     std::wstring nonExistent = test2[L"root"][L"fake"].value_or(L"NONEXISTENT");
