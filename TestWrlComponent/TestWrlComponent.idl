@@ -1,0 +1,27 @@
+import "oaidl.idl";
+import "ocidl.idl";
+import "Inspectable.idl";
+import "Windows.Foundation.idl";
+
+namespace TestWrlComponent
+{
+    [contractversion(1)]
+    apicontract TestContract
+    {
+    }
+
+    [uuid(a7bf2f2b-115b-4fbf-9b40-0fb434779668)]
+    [contract(TestContract, 1)]
+    interface ITestClass : IInspectable
+    {
+        HRESULT TestMethod();
+    }
+
+    [contract(TestContract, 1)]
+    [activatable(TestContract, 1)]
+    [marshaling_behavior(agile)]
+    runtimeclass TestClass
+    {
+        [default] interface ITestClass;
+    }
+}
