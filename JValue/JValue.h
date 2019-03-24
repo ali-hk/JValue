@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <algorithm>
 #include <string>
@@ -10,7 +10,11 @@
 #include <optional>
 #endif
 
-#if defined(__cplusplus_winrt) || defined(CPPWINRT_VERSION) || defined(_WRL_MODULE_H_) || defined(_WRL_IMPLEMENTS_H_)
+#if defined(_WRL_MODULE_H_) || defined(_WRL_IMPLEMENTS_H_) || defined(_WRL_CLIENT_H_)
+#define USE_WRL
+#endif
+
+#if defined(__cplusplus_winrt) || defined(CPPWINRT_VERSION) || defined(USE_WRL)
 
 #ifdef __cplusplus_winrt
 namespace WDJ = Windows::Data::Json;
@@ -29,7 +33,7 @@ namespace WDJ = winrt::Windows::Data::Json;
 #define JSON_VALUE_TYPE(type) WDJ::JsonValueType::type
 using WDJ_JsonObject = WDJ::JsonObject;
 using WDJ_JsonArray = WDJ::JsonArray;
-#elif defined(_WRL_MODULE_H_) || defined(_WRL_IMPLEMENTS_H_) || defined(_WRL_CLIENT_H_)
+#elif defined(USE_WRL)
 #include <Windows.Data.Json.h>
 #include <Windows.Foundation.Collections.h>
 namespace WDJ = ABI::Windows::Data::Json;
@@ -296,7 +300,7 @@ namespace details::cppwinrt
         return target;
     }
 }
-#elif defined(_WRL_MODULE_H_) || defined(_WRL_IMPLEMENTS_H_) || defined(_WRL_CLIENT_H_)
+#elif defined(USE_WRL)
 namespace details
 {
     namespace wrl
@@ -835,5 +839,8 @@ private:
 #undef WINRT_OBJ_REF
 #undef WINRT_OBJ_CONST_REF
 #undef DETAILS_NS
+#undef JSON_VALUE_TYPE
+#undef ENABLE_STD_OPTIONAL
+#undef USE_WRL
 
-#endif // defined(__cplusplus_winrt) || defined(CPPWINRT_VERSION)
+#endif // defined(__cplusplus_winrt) || defined(CPPWINRT_VERSION) || defined(USE_WRL)
