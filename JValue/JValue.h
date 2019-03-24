@@ -1,11 +1,11 @@
-﻿#pragma once
+#pragma once
 
 #include <algorithm>
 #include <string>
 #include <type_traits>
 #include <vector>
 
-#if _MSVC_LANG >= 201703L 
+#if _HAS_CXX17 
 #define ENABLE_STD_OPTIONAL
 #include <optional>
 #endif
@@ -536,8 +536,13 @@ public:
     // incorrectly deduced as booleans by the compiler, which gets picked over automatic
     // conversion to std::wstring
     JValue(const wchar_t* value)
-        : _jsonValue{ DETAILS_NS::CreateStringValue(value) }
     {
+        if (value == nullptr)
+        {
+            throw std::invalid_argument("key");
+        }
+
+        _jsonValue = DETAILS_NS::CreateStringValue(value);
     }
 
 #ifdef ENABLE_STD_OPTIONAL
@@ -740,6 +745,11 @@ public:
     // value L"", instead of throwing when attempting to lookup "secondKey".
     JValue operator[](const wchar_t* key) const
     {
+        if (key == nullptr)
+        {
+            throw std::invalid_argument("key");
+        }
+
         std::wstring pKey = key;
         if (IsValueType(JSON_VALUE_TYPE(Object)) && DETAILS_NS::HasKey(DETAILS_NS::GetObject(_jsonValue), pKey))
         {
@@ -768,6 +778,11 @@ public:
         if (!IsValueType(JSON_VALUE_TYPE(Object)))
         {
             throw std::logic_error("JValue is not a JSON object");
+        }
+
+        if (key == nullptr)
+        {
+            throw std::invalid_argument("key");
         }
 
         DETAILS_NS::Insert(DETAILS_NS::GetObject(_jsonValue), key, value);
