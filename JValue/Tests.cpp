@@ -920,8 +920,14 @@ namespace Tests
             std::vector<std::wstring> strArray = target[L"InvalidKey"].values_or<std::wstring>();
             Assert::IsTrue(strArray.size() == 0);
 
-            /*std::vector<int> nonIntArray = target[L"ValueKey"].values_or<int>();
-            Assert::IsTrue(nonIntArray.size() == 0);*/
+            std::vector<int> nonIntArray = target[L"ValueKey"].values_or<int>();
+            Assert::IsTrue(nonIntArray.size() == 0);
+
+            std::vector<int> nonIntArrayWithFallback = target[L"ValueKey"].values_or<int>(0);
+            Assert::IsTrue(nonIntArrayWithFallback.size() == 3);
+            Assert::IsTrue(nonIntArrayWithFallback[0] == 0);
+            Assert::IsTrue(nonIntArrayWithFallback[1] == 0);
+            Assert::IsTrue(nonIntArrayWithFallback[2] == 0);
 
             target =
             {
@@ -948,8 +954,14 @@ namespace Tests
             JArray mixedArray = target[L"ValueKey"].values_or();
             Assert::IsTrue(mixedArray.size() == 3);
 
-            /*std::vector<std::wstring> mixedStrArray = target[L"ValueKey"].values_or<std::wstring>();
-            Assert::IsTrue(mixedStrArray.size() == 0);*/
+            std::vector<std::wstring> mixedStrArray = target[L"ValueKey"].values_or<std::wstring>();
+            Assert::IsTrue(mixedStrArray.size() == 1);
+
+            std::vector<std::wstring> mixedStrArrayWithFallback = target[L"ValueKey"].values_or<std::wstring>(L"");
+            Assert::IsTrue(mixedStrArrayWithFallback.size() == 3);
+            Assert::IsTrue(0 == wcscmp(mixedStrArrayWithFallback[0].data(), L"One"));
+            Assert::IsTrue(mixedStrArrayWithFallback[1].empty());
+            Assert::IsTrue(mixedStrArrayWithFallback[2].empty());
         }
 
         //

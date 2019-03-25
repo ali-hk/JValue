@@ -732,14 +732,61 @@ public:
     }
 
     template<typename TElement>
-    std::vector<TElement> values_or(std::vector<TElement> defaultValue = std::vector<TElement>()) const
+    std::vector<TElement> values_or(std::vector<TElement> defaultValue = std::vector<TElement>(), bool skipInvalidElements = true) const
     {
         if (IsNull() || !IsValueType(JSON_VALUE_TYPE(Array)))
         {
             return defaultValue;
         }
 
-        return *this;
+        auto jsonArray = DETAILS_NS::GetArray(_jsonValue);
+        std::vector<TElement> valueVector;
+        for (unsigned int i = 0; i < DETAILS_NS::Size(jsonArray); i++)
+        {
+            WINRT_OBJ_REF(WDJ::IJsonValue) value = DETAILS_NS::GetAt(jsonArray, i);
+            if (skipInvalidElements)
+            {
+#if defined(ENABLE_STD_OPTIONAL)
+                std::optional<TElement> elementValueOrOpt = JValue(value).value_or_opt<TElement>();
+                if (elementValueOrOpt.has_value())
+                {
+                    valueVector.push_back(elementValueOrOpt.value());
+                }
+#else
+                TElement defaultValue = TElement();
+                TElement elementValueOrDefault = JValue(value).value_or(defaultValue);
+                if (elementValueOrDefault != defaultValue)
+                {
+                    valueVector.push_back(elementValueOrDefault);
+                }
+#endif
+            }
+            else
+            {
+                valueVector.push_back(JValue(value));
+            }
+        }
+
+        return valueVector;
+    }
+
+    template<typename TElement>
+    std::vector<TElement> values_or(TElement elementFallbackValue, std::vector<TElement> defaultValue = std::vector<TElement>()) const
+    {
+        if (IsNull() || !IsValueType(JSON_VALUE_TYPE(Array)))
+        {
+            return defaultValue;
+        }
+
+        auto jsonArray = DETAILS_NS::GetArray(_jsonValue);
+        std::vector<TElement> valueVector;
+        for (unsigned int i = 0; i < DETAILS_NS::Size(jsonArray); i++)
+        {
+            WINRT_OBJ_REF(WDJ::IJsonValue) value = DETAILS_NS::GetAt(jsonArray, i);
+            valueVector.push_back(JValue(value).value_or(elementFallbackValue));
+        }
+
+        return valueVector;
     }
 
     // Note: if a key doesn't exist, the return will be a Null JValue
