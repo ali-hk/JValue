@@ -305,7 +305,9 @@ namespace details
 {
     namespace wrl
     {
+#ifndef THROW_IF_FAILED
 #define THROW_IF_FAILED(hr) if (FAILED(hr)) throw std::runtime_error("HRESULT indicated failure.");
+#endif
 
         namespace MWRL = Microsoft::WRL;
         namespace MWRLW = Microsoft::WRL::Wrappers;
