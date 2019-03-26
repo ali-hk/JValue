@@ -1265,6 +1265,20 @@ namespace Tests
             Assert::IsTrue(actualComplexObjUnsetOptional.ArrayValue.size() == 4);
             Assert::IsTrue(!actualComplexObjUnsetOptional.OptInt.has_value());
             Assert::IsTrue(!actualComplexObjUnsetOptional.OptStr.has_value());
+
+            std::wstring rawJsonStringMismatchedValueType = LR"|({"ComplexObject":{"StrValue":"String","BoolValue":true,"NumValue":6,"ObjectValue":{"x":"5","y":"10"},"ArrayValue":[1,2,3,4]}})|";
+            parsedJvalue = JValue::Parse(rawJsonStringMismatchedValueType);
+            std::optional<TestComplexObject> actualComplexObjMismatchedValueType = parsedJvalue[L"ComplexObject"].value_or_opt<TestComplexObject>();
+            Assert::IsTrue(actualComplexObjMismatchedValueType.has_value() == false);
+#else
+            std::wstring rawJsonStringMismatchedValueType = LR"|({"ComplexObject":{"StrValue":"String","BoolValue":true,"NumValue":6,"ObjectValue":{"x":"5","y":"10"},"ArrayValue":[1,2,3,4]}})|";
+            parsedJvalue = JValue::Parse(rawJsonStringMismatchedValueType);
+            TestComplexObject actualComplexObjMismatchedValueType = parsedJvalue[L"ComplexObject"].value_or(TestComplexObject());
+            Assert::IsTrue(actualComplexObjMismatchedValueType.StrValue.empty());
+            Assert::IsTrue(actualComplexObjMismatchedValueType.BoolValue == false);
+            Assert::IsTrue(actualComplexObjMismatchedValueType.NumValue == 0);
+            Assert::IsTrue(actualComplexObjMismatchedValueType.ObjectValue.x == 0 && actualComplexObjMismatchedValueType.ObjectValue.y == 0);
+            Assert::IsTrue(actualComplexObjMismatchedValueType.ArrayValue.empty());
 #endif
         }
 

@@ -669,8 +669,15 @@ public:
 #pragma warning(pop)
 
         // Convert from JValue to T, before converting to optional<T>
-        T value = *this;
-        return value;
+        try
+        {
+            T value = *this;
+            return value;
+        }
+        catch (...)
+        {
+            return std::nullopt;
+        }
     }
 
     template<typename T, std::enable_if_t<!is_wchart<T>::value, int> = 0>
@@ -708,8 +715,15 @@ public:
 #pragma warning(pop)
 
         // Convert from JValue to T, before converting to optional<T>
-        T value = *this;
-        return value;
+        try
+        {
+            T value = *this;
+            return value;
+        }
+        catch (...)
+        {
+            return defaultValue;
+        }
     }
 
     std::wstring value_or(std::wstring defaultValue) const
