@@ -385,7 +385,7 @@ namespace Tests
             int value = subKeyValue;
             Assert::IsTrue(5 == value);
 
-            JValue subKeyValueDirect = target[0u][L"SubKey"];
+            JValue subKeyValueDirect = target[0][L"SubKey"];
             Assert::IsTrue(subKeyValueDirect.IsValueType(JSON_VALUE_TYPE(Number)));
             value = subKeyValueDirect;
             Assert::IsTrue(5 == value);
@@ -509,7 +509,7 @@ namespace Tests
 
             JArray emptyArray;
             target.Append(emptyArray);
-            JValue emptyArrayValue = target[0u];
+            JValue emptyArrayValue = target[0];
             Assert::IsTrue(emptyArrayValue.IsValueType(JSON_VALUE_TYPE(Array)));
             JArray valueEmptyArray = emptyArrayValue;
             Assert::IsTrue(valueEmptyArray.empty());

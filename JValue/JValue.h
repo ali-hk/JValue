@@ -828,11 +828,20 @@ public:
         }
     }
 
-    JValue operator[](uint32_t index) const
+    JValue operator[](int index) const
     {
-        if (IsValueType(JSON_VALUE_TYPE(Array)) && DETAILS_NS::Size(DETAILS_NS::GetArray(_jsonValue)) > index)
+        // Parameter type can't be unsigned int, because compiler gets confused between this
+        // and the wchar_t overload if the caller doesn't explicitly use an unsigned int literal (i.e. 0u)
+        if (index < 0)
         {
-            return DETAILS_NS::GetAt(DETAILS_NS::GetArray(_jsonValue), index);
+            throw std::invalid_argument("index");
+        }
+
+        unsigned int unsignedIndex = (unsigned int)index;
+
+        if (IsValueType(JSON_VALUE_TYPE(Array)) && DETAILS_NS::Size(DETAILS_NS::GetArray(_jsonValue)) > unsignedIndex)
+        {
+            return DETAILS_NS::GetAt(DETAILS_NS::GetArray(_jsonValue), unsignedIndex);
         }
         else
         {
