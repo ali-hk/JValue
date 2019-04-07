@@ -27,6 +27,7 @@ using WDJ_JsonObject = WDJ::JsonObject;
 using WDJ_JsonArray = WDJ::JsonArray;
 #elif defined(CPPWINRT_VERSION)
 #include <winrt/Windows.Data.Json.h>
+#include <winrt/Windows.Foundation.Collections.h>
 namespace WDJ = winrt::Windows::Data::Json;
 #define WINRT_OBJ_REF(type) type
 #define WINRT_OBJ_CONST_REF(type) const type&
