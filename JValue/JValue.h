@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #if _HAS_CXX17 
@@ -766,14 +767,14 @@ public:
                 std::optional<TElement> elementValueOrOpt = JValue(value).value_or_opt<TElement>();
                 if (elementValueOrOpt.has_value())
                 {
-                    valueVector.push_back(elementValueOrOpt.value());
+                    valueVector.push_back(std::move(elementValueOrOpt.value()));
                 }
 #else
                 TElement defaultValue = TElement();
                 TElement elementValueOrDefault = JValue(value).value_or(defaultValue);
                 if (elementValueOrDefault != defaultValue)
                 {
-                    valueVector.push_back(elementValueOrDefault);
+                    valueVector.push_back(std::move(elementValueOrDefault));
                 }
 #endif
             }
