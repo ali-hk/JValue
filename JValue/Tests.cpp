@@ -19,12 +19,12 @@ namespace Tests
     public:
 
         //
-        // Test: NewStringJsonValue_Success
+        // Test: NewCStringJsonValue_Success
         //
-        //      Calls NewStringJsonValue with a string, and validates that an IJsonValue is returned
+        //      Calls NewCStringJsonValue with a c-string, and validates that an IJsonValue is returned
         //      with the expected string.
         //
-        TEST_METHOD(NewStringJsonValue_Success)
+        TEST_METHOD(NewCStringJsonValue_Success)
         {
             JValue jvalue = L"StrValue";
 
@@ -34,11 +34,11 @@ namespace Tests
         }
 
         //
-        // Test: NewStringJsonValue_Fail_Args
+        // Test: NewCStringJsonValue_Fail_Args
         //
-        //      Calls NewStringJsonValue with a null string, and validates that an exception was thrown.
+        //      Calls NewCStringJsonValue with a null c-string, and validates that an exception was thrown.
         //
-        TEST_METHOD(NewStringJsonValue_Fail_Args)
+        TEST_METHOD(NewCStringJsonValue_Fail_Args)
         {
             bool threwException = false;
 
@@ -53,6 +53,210 @@ namespace Tests
             }
             Assert::IsTrue(threwException);
         }
+
+        //
+        // Test: NewStringJsonValue_Success
+        //
+        //      Calls NewStringJsonValue with a string, and validates that an IJsonValue is returned
+        //      with the expected string.
+        //
+        TEST_METHOD(NewStringJsonValue_Success)
+        {
+            std::wstring strValueInput(L"StrValue");
+            JValue jvalue = strValueInput;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(String)));
+            std::wstring strValue = jvalue;
+            Assert::IsTrue(0 == wcscmp(L"StrValue", strValue.data()));
+        }
+
+        //
+        // Test: NewStringViewJsonValue_Success
+        //
+        //      Calls NewStringViewJsonValue with a string_view, and validates that an IJsonValue is returned
+        //      with the expected string.
+        //
+        TEST_METHOD(NewStringViewJsonValue_Success)
+        {
+            std::wstring strValueInput(L"StrValue");
+            std::wstring_view strValueView = strValueInput;
+            JValue jvalue = strValueView;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(String)));
+            std::wstring strValue = jvalue;
+            Assert::IsTrue(0 == wcscmp(L"StrValue", strValue.data()));
+        }
+
+        //
+        // Test: NewStringViewJsonValue_Fail
+        //
+        //      Calls NewStringViewJsonValue_Fail with a string_view and converts back to string_view,
+        //      and validates that an exception was thrown.
+        //
+        TEST_METHOD(NewStringViewJsonValue_Fail)
+        {
+            std::wstring strValueInput(L"StrValue");
+            std::wstring_view strValueView = strValueInput;
+            JValue jvalue = strValueView;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(String)));
+
+            bool threwException = false;
+
+            try
+            {
+                std::wstring_view strValue = jvalue;
+            }
+            catch (const std::logic_error&)
+            {
+                threwException = true;
+            }
+            Assert::IsTrue(threwException);
+        }
+
+        //
+        // Test: NewWinrtStringJsonValue_Success
+        //
+        //      Calls NewWinrtStringJsonValue with a WInRT string, and validates that an IJsonValue is returned
+        //      with the expected string.
+        //
+        TEST_METHOD(NewWinRtStringJsonValue_Success)
+        {
+#if defined(__cplusplus_winrt)
+            auto strValueInput = ref new Platform::String(L"StrValue");
+#elif defined(CPPWINRT_VERSION)
+            auto strValueInput = winrt::hstring(L"StrValue");
+#endif
+            JValue jvalue = strValueInput;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(String)));
+#if defined(__cplusplus_winrt)
+            Platform::String^ strValue = jvalue;
+            Assert::IsTrue(0 == wcscmp(L"StrValue", strValue->Data()));
+#elif defined(CPPWINRT_VERSION)
+            winrt::hstring strValue = jvalue;
+            Assert::IsTrue(0 == wcscmp(L"StrValue", strValue.data()));
+#endif
+        }
+
+        //
+        // Test: NewWinrtStringRefJsonValue_Success
+        //
+        //      Calls NewWinrtStringReJsonValue with a WInRT string reference, and validates that an IJsonValue is returned
+        //      with the expected string.
+        //
+        TEST_METHOD(NewWinRtStringRefJsonValue_Success)
+        {
+#if defined(__cplusplus_winrt)
+            auto strValueInput = L"StrValue";
+            auto strValueRef = Platform::StringReference(strValueInput);
+#elif defined(CPPWINRT_VERSION)
+            auto strValueInput = winrt::hstring(L"StrValue");
+            const winrt::hstring& strValueRef = strValueInput;
+#endif
+            JValue jvalue = strValueInput;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(String)));
+
+#if defined(__cplusplus_winrt)
+            Platform::String^ strValue = jvalue;
+            Assert::IsTrue(0 == wcscmp(L"StrValue", strValue->Data()));
+#elif defined(CPPWINRT_VERSION)
+            winrt::hstring strValue = jvalue;
+            Assert::IsTrue(0 == wcscmp(L"StrValue", strValue.data()));
+#endif
+        }
+
+#if defined(__cplusplus_winrt)
+        //
+        // Test: NewWinrtStringRefJsonValue_Fail
+        //
+        //      Calls NewWinrtStringReJsonValue with a WInRT string reference, and converts back to a string reference,
+        //      and validates that an exception was thrown.
+        //
+        TEST_METHOD(NewWinRtStringRefJsonValue_Fail)
+        {
+            auto strValueInput = L"StrValue";
+            auto strValueRef = Platform::StringReference(strValueInput);
+            JValue jvalue = strValueInput;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(String)));
+
+            bool threwException = false;
+
+            try
+            {
+                Platform::StringReference strValue = jvalue;
+            }
+            catch (const std::logic_error&)
+            {
+                threwException = true;
+            }
+            Assert::IsTrue(threwException);
+        }
+#endif
+
+#if defined(ENABLE_STD_OPTIONAL)
+        TEST_METHOD(AddOptionalWithValueToJsonObject_Success)
+        {
+            int intValueExpected = 5;
+            auto intOpt = std::make_optional<int>(intValueExpected);
+            JValue jvalue = intOpt;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(Number)));
+            int intValueActual = jvalue;
+            Assert::IsTrue(intValueActual == intValueExpected);
+        }
+
+        TEST_METHOD(AddOptionalWithEmptyValueToJsonObject_Success)
+        {
+            std::optional<int> value;
+            value = std::nullopt;
+            JValue jvalue = value;
+
+            Assert::IsTrue(jvalue.IsNull());
+        }
+#endif
+
+#if defined(__cplusplus_winrt)
+        TEST_METHOD(AddBoxWithValueToJsonObject_Success)
+        {
+            int intValueExpected = 5;
+            Platform::Box<int>^ intOpt = ref new Platform::Box<int>(intValueExpected);
+            JValue jvalue = intOpt;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(Number)));
+            int intValueActual = jvalue;
+            Assert::IsTrue(intValueActual == intValueExpected);
+        }
+
+        TEST_METHOD(AddBoxWithoutValueToJsonObject_Success)
+        {
+            Platform::Box<int>^ value = nullptr;
+            JValue jvalue = value;
+
+            Assert::IsTrue(jvalue.IsNull());
+        }
+
+        TEST_METHOD(AddIBoxWithValueToJsonObject_Success)
+        {
+            int intValueExpected = 5;
+            Platform::IBox<int>^ intOpt = ref new Platform::Box<int>(intValueExpected);
+            JValue jvalue = intOpt;
+
+            Assert::IsTrue(jvalue.IsValueType(JSON_VALUE_TYPE(Number)));
+            int intValueActual = jvalue;
+            Assert::IsTrue(intValueActual == intValueExpected);
+        }
+
+        TEST_METHOD(AddIBoxWithoutValueToJsonObject_Success)
+        {
+            Platform::IBox<int>^ value = nullptr;
+            JValue jvalue = value;
+
+            Assert::IsTrue(jvalue.IsNull());
+        }
+#endif
 
         //
         // Test: NewBooleanJsonValue_Success
@@ -1285,65 +1489,77 @@ namespace Tests
     };
 }
 
-void Tests::Serialize(JValue& json, const std::shared_ptr<TestComplexObject>& value)
+template<>
+struct SerializationTrait<Tests::TestComplexObject>
 {
-    json = *value;
-}
+    void serialize(JValue& target, const Tests::TestComplexObject& value)
+    {
+        target = {
+            { L"StrValue", value.StrValue },
+            { L"BoolValue", value.BoolValue },
+            { L"NumValue", value.NumValue },
+            { L"ObjectValue", value.ObjectValue },
+            { L"ArrayValue", value.ArrayValue }
+    #if defined(ENABLE_STD_OPTIONAL)
+            , { L"OptInt", value.OptInt },
+            { L"OptStr", value.OptStr }
+    #endif
+        };
+    }
 
-void Tests::Serialize(JValue& json, const TestComplexObject& value)
-{
-    json = {
-        { L"StrValue", value.StrValue },
-        { L"BoolValue", value.BoolValue },
-        { L"NumValue", value.NumValue },
-        { L"ObjectValue", value.ObjectValue },
-        { L"ArrayValue", value.ArrayValue }
+    void deserialize(const JValue& json, Tests::TestComplexObject& target)
+    {
+        target = Tests::TestComplexObject(
+            json[L"StrValue"],
+            json[L"BoolValue"],
+            json[L"NumValue"],
+            json[L"ObjectValue"],
+            json[L"ArrayValue"]
 #if defined(ENABLE_STD_OPTIONAL)
-        , { L"OptInt", value.OptInt },
-        { L"OptStr", value.OptStr }
-#endif
-    };
-}
-
-void Tests::Deserialize(const JValue& json, TestComplexObject& value)
-{
-    value = TestComplexObject(
-        json[L"StrValue"],
-        json[L"BoolValue"],
-        json[L"NumValue"],
-        json[L"ObjectValue"],
-        json[L"ArrayValue"]
-#if defined(ENABLE_STD_OPTIONAL)
-        , json[L"OptInt"].value_or_opt<int>(),
-        json[L"OptStr"].value_or_opt<std::wstring>()
-#endif
-    );
-}
-
-void Tests::Deserialize(const JValue& json, std::shared_ptr<TestComplexObject>& value)
-{
-    value = std::make_shared<TestComplexObject>(
-        json[L"StrValue"],
-        json[L"BoolValue"],
-        json[L"NumValue"],
-        json[L"ObjectValue"],
-        json[L"ArrayValue"]
-#if defined(ENABLE_STD_OPTIONAL)
-        , json[L"OptInt"].value_or_opt<int>(),
-        json[L"OptStr"].value_or_opt<std::wstring>()
+            , json[L"OptInt"].value_or_opt<int>(),
+            json[L"OptStr"].value_or_opt<std::wstring>()
 #endif
         );
-}
+    }
+};
 
-void Tests::Serialize(JValue& json, const TestComplexSubObject& value)
+template<>
+struct SerializationTrait<std::shared_ptr<Tests::TestComplexObject>>
 {
-    json = {
-        { L"x", value.x },
-        { L"y", value.y }
-    };
-}
+    void serialize(JValue& target, const std::shared_ptr<Tests::TestComplexObject>& value)
+    {
+        target = *value;
+    }
 
-void Tests::Deserialize(const JValue& json, TestComplexSubObject& value)
+    void deserialize(const JValue& json, std::shared_ptr<Tests::TestComplexObject>& target)
+    {
+        target = std::make_shared<Tests::TestComplexObject>(
+            json[L"StrValue"],
+            json[L"BoolValue"],
+            json[L"NumValue"],
+            json[L"ObjectValue"],
+            json[L"ArrayValue"]
+#if defined(ENABLE_STD_OPTIONAL)
+            , json[L"OptInt"].value_or_opt<int>(),
+            json[L"OptStr"].value_or_opt<std::wstring>()
+#endif
+        );
+    }
+};
+
+template<>
+struct SerializationTrait<Tests::TestComplexSubObject>
 {
-    value = TestComplexSubObject{ json[L"x"], json[L"y"] };
-}
+    void serialize(JValue& target, const Tests::TestComplexSubObject& value)
+    {
+        target = {
+            { L"x", value.x },
+            { L"y", value.y }
+        };
+    }
+
+    void deserialize(const JValue& json, Tests::TestComplexSubObject& target)
+    {
+        target = Tests::TestComplexSubObject{ json[L"x"], json[L"y"] };
+    }
+};

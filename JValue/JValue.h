@@ -25,6 +25,8 @@ namespace WDJ = Windows::Data::Json;
 #define JSON_VALUE_TYPE(type) WDJ::JsonValueType::type
 using WDJ_JsonObject = WDJ::JsonObject;
 using WDJ_JsonArray = WDJ::JsonArray;
+using WinRTString = Platform::String;
+using WinRTStringRef = Platform::StringReference;
 #elif defined(CPPWINRT_VERSION)
 #include <winrt/Windows.Data.Json.h>
 #include <winrt/Windows.Foundation.Collections.h>
@@ -35,6 +37,8 @@ namespace WDJ = winrt::Windows::Data::Json;
 #define JSON_VALUE_TYPE(type) WDJ::JsonValueType::type
 using WDJ_JsonObject = WDJ::JsonObject;
 using WDJ_JsonArray = WDJ::JsonArray;
+using WinRTString = winrt::hstring;
+using WinRTStringRef = winrt::hstring const&;
 #elif defined(USE_WRL)
 #include <Windows.Data.Json.h>
 #include <Windows.Foundation.Collections.h>
@@ -45,6 +49,8 @@ namespace WDJ = ABI::Windows::Data::Json;
 #define JSON_VALUE_TYPE(type) WDJ::JsonValueType::JsonValueType_ ## type
 using WDJ_JsonObject = WDJ::IJsonObject;
 using WDJ_JsonArray = WDJ::IJsonArray;
+using WinRTString = HString;
+using WinRTStringRef = HStringReference;
 #endif
 
 class JValue;
@@ -61,12 +67,6 @@ std::bool_constant<std::is_same_v<std::decay_t<_Ty>, wchar_t*>
     || std::is_same_v<std::decay_t<_Ty>, const wchar_t*>
     || std::is_same_v<std::decay_t<_Ty>, std::wstring>
     || std::is_same_v<std::decay_t<_Ty>, const std::wstring>
->;
-
-template<class _Ty>
-using is_wchart =
-std::bool_constant<std::is_same_v<std::decay_t<_Ty>, wchar_t*>
-    || std::is_same_v<std::decay_t<_Ty>, const wchar_t*>
 >;
 
 template<class _Ty>
@@ -99,6 +99,21 @@ namespace details::cx
         return WDJ::JsonValue::CreateStringValue(ref new Platform::String(value.data()));
     }
 
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const std::wstring& value)
+    {
+        return WDJ::JsonValue::CreateStringValue(ref new Platform::String(value.data()));
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(std::wstring_view value)
+    {
+        return WDJ::JsonValue::CreateStringValue(ref new Platform::String(value.data()));
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(WinRTString^ value)
+    {
+        return WDJ::JsonValue::CreateStringValue(value);
+    }
+
     inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateNullValue()
     {
         return WDJ::JsonValue::CreateNullValue();
@@ -127,6 +142,11 @@ namespace details::cx
     inline std::wstring GetString(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
     {
         return target->GetString()->Data();
+    }
+
+    inline WinRTString^ GetWinRTString(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target->GetString();
     }
 
     inline double GetNumber(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
@@ -212,6 +232,21 @@ namespace details::cppwinrt
         return WDJ::JsonValue::CreateStringValue(value);
     }
 
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const std::wstring& value)
+    {
+        return WDJ::JsonValue::CreateStringValue(value);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const std::wstring_view& value)
+    {
+        return WDJ::JsonValue::CreateStringValue(value);
+    }
+
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const WinRTString& value)
+    {
+        return WDJ::JsonValue::CreateStringValue(value);
+    }
+
     inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateNullValue()
     {
         return WDJ::JsonValue::CreateNullValue();
@@ -239,7 +274,12 @@ namespace details::cppwinrt
 
     inline std::wstring GetString(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
     {
-        return target.GetString().data();
+        return std::wstring(target.GetString());
+    }
+
+    inline WinRTString GetWinRTString(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+    {
+        return target.GetString();
     }
 
     inline double GetNumber(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
@@ -498,6 +538,183 @@ namespace details
 }
 #endif
 
+template<typename T>
+struct assert_false : std::false_type
+{ };
+
+template<typename T>
+struct OptionalTrait
+{
+    using Type = typename std::decay<T>::type;
+    static constexpr bool IsOptional = false;
+
+    template<typename U> // universal parameter
+    static constexpr bool HasValue(U&&)
+    {
+        return true;
+    }
+};
+
+#if defined(ENABLE_STD_OPTIONAL)
+template<typename TOpt>
+struct OptionalTrait<std::optional<TOpt>>
+{
+    using Type = typename std::decay<TOpt>::type;
+    static constexpr bool IsOptional = true;
+    static constexpr std::optional<TOpt> EmptyValue() { return std::nullopt; }
+    static constexpr bool HasValue(const std::optional<TOpt>& o) { return o.has_value(); }
+    static constexpr auto&& Value(const std::optional<TOpt>& o) { return o.value(); }
+};
+#endif
+
+#if defined (__cplusplus_winrt)
+template<typename TOpt>
+struct OptionalTrait<Platform::IBox<TOpt>^>
+{
+    using Type = typename std::decay<TOpt>::type;
+    static constexpr bool IsOptional = true;
+    static constexpr Platform::IBox<TOpt>^ EmptyValue() { return nullptr; }
+    static constexpr bool HasValue(Platform::IBox<TOpt>^ o) { return o != nullptr; }
+    static constexpr auto Value(Platform::IBox<TOpt>^ o) { return o->Value; }
+};
+
+template<typename TOpt>
+struct OptionalTrait<Platform::Box<TOpt>^>
+{
+    using Type = typename std::decay<TOpt>::type;
+    static constexpr bool IsOptional = true;
+    static constexpr Platform::Box<TOpt>^ EmptyValue() { return nullptr; }
+    static constexpr bool HasValue(Platform::Box<TOpt>^ o) { return o != nullptr; }
+    static constexpr auto Value(Platform::Box<TOpt>^ o) { return o->Value; }
+};
+#endif
+
+//#if defined(CPPWINRT_VERSION)
+//template<typename TOpt>
+//struct OptionalTrait<::winrt::Windows::Foundation::IReference<TOpt>>
+//{
+//    using Type = typename std::decay<TOpt>::type;
+//    static constexpr bool IsOptional = true;
+//    static constexpr ::winrt::Windows::Foundation::IReference<TOpt> EmptyValue() { return nullptr; }
+//    static constexpr bool HasValue(const ::winrt::Windows::Foundation::IReference<TOpt>& o) { return o != nullptr; }
+//    static constexpr auto&& Value(const ::winrt::Windows::Foundation::IReference<TOpt>& o) { static_assert(assert_false<TOpt>::Value, "Deserializing IReference is not supported."); }
+//};
+
+//template<>
+//struct OptionalTrait<::winrt::hstring>
+//{
+//    using Type = typename ::winrt::hstring;
+//    static constexpr bool IsOptional = true;
+//};
+//#endif
+
+// RawSerializationTrait enables direct serialziation/deserializaiton to WinRT's IJsonValue
+template<typename TSource, typename allow_enable_if = void>
+struct RawSerializationTrait
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const TSource& value)
+    {
+        static_assert(assert_false<TSource>::value, "A serialization trait has not been defined for this type. Create a SerializationTrait template specialization to enable serialization of this type.");
+    }
+
+    TSource deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue))
+    {
+        static_assert(assert_false<TSource>::value, "A serialization trait has not been defined for this type. Create a SerializationTrait template specialization to enable serialization of this type.");
+    }
+};
+
+// SerializationTrait offers the convenience of using JValue to define a custom serialization/deserializaiton.
+template<typename TSource, typename allow_enable_if = void>
+struct SerializationTrait
+{
+    void serialize(JValue& target, const TSource& value)
+    {
+        static_assert(assert_false<TSource>::value, "A serialization trait has not been defined for this type. Create a SerializationTrait template specialization to enable serialization of this type.");
+    }
+
+    void deserialize(const JValue& value, TSource& target)
+    {
+        static_assert(assert_false<TSource>::value, "A serialization trait has not been defined for this type. Create a SerializationTrait template specialization to enable serialization of this type.");
+    }
+};
+
+template<typename T> struct is_vector : public std::false_type {};
+
+template<typename T, typename A>
+struct is_vector<std::vector<T, A>> : public std::true_type {};
+
+template<typename _Ty>
+using has_raw_serialization =
+std::bool_constant < std::is_arithmetic_v<std::decay_t<_Ty>>
+    || std::is_same_v<std::decay_t<_Ty>, wchar_t const*>
+    || std::is_same_v<std::decay_t<_Ty>, std::wstring>
+    || std::is_same_v<std::decay_t<_Ty>, std::wstring_view>
+    || std::is_same_v<std::decay_t<_Ty>, WINRT_OBJ_REF(WinRTString)>
+    || std::is_same_v<std::decay_t<_Ty>, WinRTStringRef>
+    || is_vector<_Ty>::value
+    || std::is_same_v<std::decay_t<_Ty>, std::vector<JValue>>
+>;
+
+// serialize, type-deduced, with automatic serializer
+template<typename TSource>
+void serialize_raw(const TSource& value, WINRT_OBJ_REF(WDJ::IJsonValue)& target)
+{
+    target = RawSerializationTrait<TSource>{}.serialize_raw(value);
+}
+
+// serialize, forced return type, with automatic serializer
+template<typename TSource>
+std::decay_t<WINRT_OBJ_REF(WDJ::IJsonValue)> serialize_raw(const TSource& value)
+{
+    return RawSerializationTrait<TSource>{}.serialize_raw(value);
+}
+
+// deserialize, type-deduced, with automatic deserializer
+template<typename TSource>
+void deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value, TSource& target)
+{
+    target = RawSerializationTrait<TSource>{}.deserialize_raw(value);
+}
+
+// deserialize, forced return type, with automatic deserializer
+template<typename TSource>
+std::decay_t<TSource> deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+{
+    return RawSerializationTrait<TSource>{}.deserialize_raw(value);
+}
+
+// serialize, type-deduced, with automatic serializer
+template<typename TSource>
+void serialize(const TSource& value, JValue& target)
+{
+    target = SerializationTrait<TSource>{}.serialize(target, value);
+}
+
+// serialize, forced return type, with automatic serializer
+template<typename TSource>
+std::decay_t<JValue> serialize(const TSource& value)
+{
+    JValue target(nullptr);
+    SerializationTrait<TSource>{}.serialize(target, value);
+    return target;
+}
+
+// deserialize, type-deduced, with automatic deserializer
+template<typename TSource>
+void deserialize(const JValue& value, TSource& target)
+{
+    SerializationTrait<TSource>{}.deserialize(value, target);
+}
+
+// deserialize, forced return type, with automatic deserializer
+template<typename TSource>
+std::decay_t<TSource> deserialize(const JValue& value)
+{
+    TSource target{};
+    SerializationTrait<TSource>{}.deserialize(value, target);
+    return target;
+}
+
 class JValue
 {
 public:
@@ -511,76 +728,44 @@ public:
     {
     }
 
-    template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
-    JValue(T value)
-        : _jsonValue{ DETAILS_NS::CreateNumberValue(static_cast<double>(value)) }
-    {
-    }
-
-    // To support this conversion, implement a method in the namespace of the object you want to serialize
-    // that matches this pattern: void Serialize(JValue& json, const T& value);
-    template<typename T, std::enable_if_t<!std::is_arithmetic_v<T> && !is_ijsonvalue<T>::value, int> = 0>
-    JValue(T value)
-    {
-        JValue json(nullptr);
-        Serialize(json, value);
-        _jsonValue = json._jsonValue;
-        _omit = json._omit;
-    }
-
-    // This can't be marked as explicit, otherwise implicit conversions from bool to JValue
-    // won't work, which means methods accepting JValue won't be able to accept bool values.
-    JValue(bool value)
-        : _jsonValue{ DETAILS_NS::CreateBooleanValue(value) }
-    {
-    }
-
-    JValue(std::wstring value)
-        : _jsonValue(DETAILS_NS::CreateStringValue(value))
-    {
-    }
-
-    // This is required to ensure string literals and other wchar_t* instances don't get
-    // incorrectly deduced as booleans by the compiler, which gets picked over automatic
-    // conversion to std::wstring
-    JValue(const wchar_t* value)
-    {
-        if (value == nullptr)
-        {
-            throw std::invalid_argument("key");
-        }
-
-        _jsonValue = DETAILS_NS::CreateStringValue(value);
-    }
-
-#ifdef ENABLE_STD_OPTIONAL
-    template<typename T>
-    JValue(std::optional<T> value)
-    {
-        if (value.has_value())
-        {
-            _jsonValue = JValue(value.value());
-        }
-        else
-        {
-            _omit = true;
-        }
-}
-#endif ENABLE_STD_OPTIONAL
-
-    template<typename T>
-    JValue(std::vector<T> arrayValue)
-    {
-        auto jarray = DETAILS_NS::CreateJsonArray();
-        std::for_each(arrayValue.begin(), arrayValue.end(), [jarray](JValue value) {
-            DETAILS_NS::Append(jarray, value);
-        });
-        _jsonValue = DETAILS_NS::CastToJsonValue(jarray);
-    }
-
     JValue(nullptr_t)
         : _jsonValue{ DETAILS_NS::CreateNullValue() }
     {
+    }
+
+    template<typename T, std::enable_if_t<!is_ijsonvalue<T>::value, int> = 0>
+    JValue(T value)
+    {
+        if constexpr (OptionalTrait<T>::IsOptional)
+        {
+            if (OptionalTrait<T>::HasValue(value))
+            {
+                if constexpr (has_raw_serialization<typename OptionalTrait<T>::Type>::value)
+                {
+                    _jsonValue = serialize_raw<typename OptionalTrait<T>::Type>(OptionalTrait<T>::Value(value));
+                }
+                else
+                {
+                    _jsonValue = serialize<typename OptionalTrait<T>::Type>(OptionalTrait<T>::Value(value));
+                }
+            }
+            else
+            {
+                _omit = true;
+                return;
+            }
+        }
+        else
+        {
+            if constexpr (has_raw_serialization<T>::value)
+            {
+                _jsonValue = serialize_raw<T>(value);
+            }
+            else
+            {
+                _jsonValue = serialize<T>(value);
+            }
+        }
     }
 
     operator WINRT_OBJ_REF(WDJ::IJsonValue)() const
@@ -588,63 +773,108 @@ public:
         return _jsonValue;
     }
 
-    operator std::wstring() const
-    {
-        return DETAILS_NS::GetString(_jsonValue);
-    }
-
-    template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+    template<typename T>
     operator T() const
     {
-        return static_cast<T>(DETAILS_NS::GetNumber(_jsonValue));
-    }
-
-    // To support this conversion, implement a method in the namespace of the object you want to deserialize
-    // that matches this pattern: void Deserialize(const JValue& json, T& value);
-    template<typename T, std::enable_if_t<!std::is_arithmetic_v<T>, int> = 0>
-    operator T() const
-    {
-        T value;
-        Deserialize(*this, value);
-        return value;
-    }
-
-    // This is required to ensure the compiler doesn't select the
-    // numerical overload, as is_arithmetic is true for bool
-    operator bool() const
-    {
-        return DETAILS_NS::GetBoolean(_jsonValue);
-    }
-
-    template<typename TElement>
-    operator std::vector<TElement>() const
-    {
-        auto jsonArray = DETAILS_NS::GetArray(_jsonValue);
-        std::vector<TElement> valueVector;
-        for (unsigned int i = 0; i < DETAILS_NS::Size(jsonArray); i++)
+        if constexpr (OptionalTrait<T>::IsOptional)
         {
-            WINRT_OBJ_REF(WDJ::IJsonValue) value = DETAILS_NS::GetAt(jsonArray, i);
-            valueVector.push_back(JValue(value));
+            if (IsNull())
+            {
+                return OptionalTrait<T>::EmptyValue();
+            }
         }
 
-        return valueVector;
+        if constexpr (has_raw_serialization<typename OptionalTrait<T>::Type>::value)
+        {
+            return deserialize_raw<T>(_jsonValue);
+        }
+        else
+        {
+            return deserialize<T>(_jsonValue);
+        }
     }
 
-    operator std::vector<JValue>() const
+    void Insert(const wchar_t* key, JValue value)
     {
-        auto jsonArray = DETAILS_NS::GetArray(_jsonValue);
-        std::vector<JValue> valueVector;
-        for (unsigned int i = 0; i < DETAILS_NS::Size(jsonArray); i++)
+        if (!IsValueType(JSON_VALUE_TYPE(Object)))
         {
-            WINRT_OBJ_REF(WDJ::IJsonValue) value = DETAILS_NS::GetAt(jsonArray, i);
-            valueVector.push_back(JValue(value));
+            throw std::logic_error("JValue is not a JSON object");
         }
 
-        return valueVector;
+        if (key == nullptr)
+        {
+            throw std::invalid_argument("key");
+        }
+
+        DETAILS_NS::Insert(DETAILS_NS::GetObject(_jsonValue), key, value);
+    }
+
+    void Append(JValue value)
+    {
+        if (!IsValueType(JSON_VALUE_TYPE(Array)))
+        {
+            throw std::logic_error("JValue is not a JSON array");
+        }
+
+        DETAILS_NS::Append(DETAILS_NS::GetArray(_jsonValue), value);
+    }
+
+    bool IsNull() const
+    {
+        return _jsonValue == nullptr || DETAILS_NS::ValueType(_jsonValue) == JSON_VALUE_TYPE(Null);
+    }
+
+    bool IsValueType(WDJ::JsonValueType valueType) const
+    {
+        return _jsonValue != nullptr && DETAILS_NS::ValueType(_jsonValue) == valueType;
+    }
+
+    // Note: if a key doesn't exist, the return will be a Null JValue
+    // this allows null propogation like so:
+    // responseJson["key"]["secondKey"].value_or(L"")
+    // in this case, if "key" doesn't exist, this will still return the final default
+    // value L"", instead of throwing when attempting to lookup "secondKey".
+    JValue operator[](const wchar_t* key) const
+    {
+        if (key == nullptr)
+        {
+            throw std::invalid_argument("key");
+        }
+
+        std::wstring pKey = key;
+        if (IsValueType(JSON_VALUE_TYPE(Object)) && DETAILS_NS::HasKey(DETAILS_NS::GetObject(_jsonValue), pKey))
+        {
+            return DETAILS_NS::GetNamedValue(DETAILS_NS::GetObject(_jsonValue), pKey);
+        }
+        else
+        {
+            return DETAILS_NS::CreateNullValue();
+        }
+    }
+
+    JValue operator[](int index) const
+    {
+        // Parameter type can't be unsigned int, because compiler gets confused between this
+        // and the wchar_t overload if the caller doesn't explicitly use an unsigned int literal (i.e. 0u)
+        if (index < 0)
+        {
+            throw std::invalid_argument("index");
+        }
+
+        unsigned int unsignedIndex = (unsigned int)index;
+
+        if (IsValueType(JSON_VALUE_TYPE(Array)) && DETAILS_NS::Size(DETAILS_NS::GetArray(_jsonValue)) > unsignedIndex)
+        {
+            return DETAILS_NS::GetAt(DETAILS_NS::GetArray(_jsonValue), unsignedIndex);
+        }
+        else
+        {
+            return DETAILS_NS::CreateNullValue();
+        }
     }
 
 #ifdef ENABLE_STD_OPTIONAL
-    template<typename T, std::enable_if_t<!is_wchart<T>::value, int> = 0>
+    template<typename T>
     std::optional<T> value_or_opt() const
     {
         if (IsNull())
@@ -652,23 +882,28 @@ public:
             return std::nullopt;
         }
 
-#pragma warning(push)
-#pragma warning(disable:4127) // Compiler incorrectly suggests using constexpr, then fails if it is used
-        if (is_bool_integral<T>::value && !IsValueType(JSON_VALUE_TYPE(Boolean)))
+        if constexpr (is_bool_integral<T>::value)
         {
-            return std::nullopt;
+            if (!IsValueType(JSON_VALUE_TYPE(Boolean)))
+            {
+                return std::nullopt;
+            }
+        }
+        else if constexpr (std::is_integral_v<T>)
+        {
+            if (!IsValueType(JSON_VALUE_TYPE(Number)))
+            {
+                return std::nullopt;
+            }
         }
 
-        if (std::_Is_nonbool_integral<T>::value && !IsValueType(JSON_VALUE_TYPE(Number)))
+        if constexpr (is_string<T>::value)
         {
-            return std::nullopt;
+            if (!IsValueType(JSON_VALUE_TYPE(String)))
+            {
+                return std::nullopt;
+            }
         }
-
-        if (is_string<T>::value && !IsValueType(JSON_VALUE_TYPE(String)))
-        {
-            return std::nullopt;
-        }
-#pragma warning(pop)
 
         // Convert from JValue to T, before converting to optional<T>
         try
@@ -682,20 +917,23 @@ public:
         }
     }
 
-    template<typename T, std::enable_if_t<!is_wchart<T>::value, int> = 0>
+    template<typename T>
     T value_or(T defaultValue) const
     {
         std::optional<T> valueOpt = value_or_opt<T>();
         return valueOpt.value_or(defaultValue);
     }
 
-    std::wstring value_or(std::wstring defaultValue) const
+    // This is necessary to prevent the compiler from attempting 
+    // to deserialize first to wchar_t const* before creating
+    // a std::wstring from it when default value is a string literal
+    std::wstring value_or(wchar_t const* defaultValue) const
     {
         std::optional<std::wstring> valueOpt = value_or_opt<std::wstring>();
         return valueOpt.value_or(defaultValue);
     }
 #else
-    template<typename T, std::enable_if_t<!is_wchart<T>::value, int> = 0>
+    template<typename T>
     T value_or(T defaultValue) const
     {
         if (IsNull())
@@ -703,18 +941,28 @@ public:
             return defaultValue;
         }
 
-#pragma warning(push)
-#pragma warning(disable:4127) // Compiler incorrectly suggests using constexpr, then fails if it is used
-        if (is_bool_integral<T>::value && !IsValueType(JSON_VALUE_TYPE(Boolean)))
+        if constexpr (is_bool_integral<T>::value)
         {
-            return defaultValue;
+            if (!IsValueType(JSON_VALUE_TYPE(Boolean)))
+            {
+                return defaultValue;
+            }
+        }
+        else if constexpr (std::is_integral_v<T>)
+        {
+            if (!IsValueType(JSON_VALUE_TYPE(Number)))
+            {
+                return defaultValue;
+            }
         }
 
-        if (std::_Is_nonbool_integral<T>::value && !IsValueType(JSON_VALUE_TYPE(Number)))
+        if constexpr (is_string<T>::value)
         {
-            return defaultValue;
+            if (!IsValueType(JSON_VALUE_TYPE(String)))
+            {
+                return defaultValue;
+            }
         }
-#pragma warning(pop)
 
         // Convert from JValue to T, before converting to optional<T>
         try
@@ -728,7 +976,10 @@ public:
         }
     }
 
-    std::wstring value_or(std::wstring defaultValue) const
+    // This is necessary to prevent the compiler from attempting 
+    // to deserialize first to wchar_t const* before creating
+    // a std::wstring from it when default value is a string literal
+    std::wstring value_or(wchar_t const* defaultValue) const
     {
         if (!IsValueType(JSON_VALUE_TYPE(String)))
         {
@@ -807,85 +1058,6 @@ public:
         return valueVector;
     }
 
-    // Note: if a key doesn't exist, the return will be a Null JValue
-    // this allows null propogation like so:
-    // responseJson["key"]["secondKey"].value_or(L"")
-    // in this case, if "key" doesn't exist, this will still return the final default
-    // value L"", instead of throwing when attempting to lookup "secondKey".
-    JValue operator[](const wchar_t* key) const
-    {
-        if (key == nullptr)
-        {
-            throw std::invalid_argument("key");
-        }
-
-        std::wstring pKey = key;
-        if (IsValueType(JSON_VALUE_TYPE(Object)) && DETAILS_NS::HasKey(DETAILS_NS::GetObject(_jsonValue), pKey))
-        {
-            return DETAILS_NS::GetNamedValue(DETAILS_NS::GetObject(_jsonValue), pKey);
-        }
-        else
-        {
-            return DETAILS_NS::CreateNullValue();
-        }
-    }
-
-    JValue operator[](int index) const
-    {
-        // Parameter type can't be unsigned int, because compiler gets confused between this
-        // and the wchar_t overload if the caller doesn't explicitly use an unsigned int literal (i.e. 0u)
-        if (index < 0)
-        {
-            throw std::invalid_argument("index");
-        }
-
-        unsigned int unsignedIndex = (unsigned int)index;
-
-        if (IsValueType(JSON_VALUE_TYPE(Array)) && DETAILS_NS::Size(DETAILS_NS::GetArray(_jsonValue)) > unsignedIndex)
-        {
-            return DETAILS_NS::GetAt(DETAILS_NS::GetArray(_jsonValue), unsignedIndex);
-        }
-        else
-        {
-            return DETAILS_NS::CreateNullValue();
-        }
-    }
-
-    void Insert(const wchar_t* key, JValue value)
-    {
-        if (!IsValueType(JSON_VALUE_TYPE(Object)))
-        {
-            throw std::logic_error("JValue is not a JSON object");
-        }
-
-        if (key == nullptr)
-        {
-            throw std::invalid_argument("key");
-        }
-
-        DETAILS_NS::Insert(DETAILS_NS::GetObject(_jsonValue), key, value);
-    }
-
-    void Append(JValue value)
-    {
-        if (!IsValueType(JSON_VALUE_TYPE(Array)))
-        {
-            throw std::logic_error("JValue is not a JSON array");
-        }
-
-        DETAILS_NS::Append(DETAILS_NS::GetArray(_jsonValue), value);
-    }
-
-    bool IsNull() const
-    {
-        return _jsonValue == nullptr || DETAILS_NS::ValueType(_jsonValue) == JSON_VALUE_TYPE(Null);
-    }
-
-    bool IsValueType(WDJ::JsonValueType valueType) const
-    {
-        return _jsonValue != nullptr && DETAILS_NS::ValueType(_jsonValue) == valueType;
-    }
-
     JValue(std::initializer_list<std::pair<std::wstring, JValue>> map)
     {
         WINRT_OBJ_REF(WDJ_JsonObject) jObject = DETAILS_NS::CreateJsonObject();
@@ -908,6 +1080,161 @@ public:
 private:
     WINRT_OBJ_REF(WDJ::IJsonValue) _jsonValue;
     bool _omit = false;
+};
+
+template<typename T>
+struct RawSerializationTrait<T, std::enable_if_t<std::is_arithmetic_v<T>>>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const T& value)
+    {
+        return DETAILS_NS::CreateNumberValue(static_cast<double>(value));
+    }
+
+    T deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        return static_cast<T>(DETAILS_NS::GetNumber(value));
+    }
+};
+
+template<>
+struct RawSerializationTrait<bool>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const bool& value)
+    {
+        return DETAILS_NS::CreateBooleanValue(value);
+    }
+
+    bool deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        return DETAILS_NS::GetBoolean(value);
+    }
+};
+
+template<>
+struct RawSerializationTrait<wchar_t const*>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(wchar_t const* value)
+    {
+        if (value == nullptr)
+        {
+            throw std::invalid_argument("value");
+        }
+
+        return DETAILS_NS::CreateStringValue2(std::wstring_view(value));
+    }
+
+    wchar_t* deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        throw std::logic_error("Converting to wchar_t* is not supported");
+    }
+};
+
+template<>
+struct RawSerializationTrait<std::wstring>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const std::wstring& value)
+    {
+        return DETAILS_NS::CreateStringValue2(value);
+    }
+
+    std::wstring deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        return DETAILS_NS::GetString(value);
+    }
+};
+
+template<>
+struct RawSerializationTrait<std::wstring_view>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const std::wstring_view& value)
+    {
+        return DETAILS_NS::CreateStringValue2(value);
+    }
+
+    std::wstring_view deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        throw std::logic_error("Converting to wstring_view is not safe");
+    }
+};
+
+template<>
+struct RawSerializationTrait<WINRT_OBJ_REF(WinRTString)>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(WINRT_OBJ_CONST_REF(WinRTString) value)
+    {
+        return DETAILS_NS::CreateStringValue2(value);
+    }
+
+    WINRT_OBJ_REF(WinRTString) deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        return DETAILS_NS::GetWinRTString(value);
+    }
+};
+
+template<>
+struct RawSerializationTrait<WinRTStringRef>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(WinRTStringRef value)
+    {
+        return DETAILS_NS::CreateStringValue2(value);
+    }
+
+    WinRTStringRef deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        throw std::logic_error("Converting to a string reference is not safe");
+    }
+};
+
+template<typename T>
+struct RawSerializationTrait<std::vector<T>>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const std::vector<T>& arrayValue)
+    {
+        auto jarray = DETAILS_NS::CreateJsonArray();
+        std::for_each(arrayValue.begin(), arrayValue.end(), [jarray](JValue value) {
+            DETAILS_NS::Append(jarray, value);
+            });
+        return DETAILS_NS::CastToJsonValue(jarray);
+    }
+
+    std::vector<T> deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        auto jsonArray = DETAILS_NS::GetArray(value);
+        std::vector<T> valueVector;
+        for (unsigned int i = 0; i < DETAILS_NS::Size(jsonArray); i++)
+        {
+            WINRT_OBJ_REF(WDJ::IJsonValue) item = DETAILS_NS::GetAt(jsonArray, i);
+            valueVector.push_back(JValue(item));
+        }
+
+        return valueVector;
+    }
+};
+
+template<>
+struct RawSerializationTrait<std::vector<JValue>>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const std::vector<JValue>& arrayValue)
+    {
+        auto jarray = DETAILS_NS::CreateJsonArray();
+        std::for_each(arrayValue.begin(), arrayValue.end(), [jarray](JValue value) {
+            DETAILS_NS::Append(jarray, value);
+            });
+        return DETAILS_NS::CastToJsonValue(jarray);
+    }
+
+    std::vector<JValue> deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        auto jsonArray = DETAILS_NS::GetArray(value);
+        std::vector<JValue> valueVector;
+        for (unsigned int i = 0; i < DETAILS_NS::Size(jsonArray); i++)
+        {
+            WINRT_OBJ_REF(WDJ::IJsonValue) item = DETAILS_NS::GetAt(jsonArray, i);
+            valueVector.push_back(JValue(item));
+        }
+
+        return valueVector;
+    }
 };
 
 #undef WINRT_OBJ_REF

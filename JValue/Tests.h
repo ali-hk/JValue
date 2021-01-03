@@ -53,12 +53,4 @@ namespace Tests
         std::optional<std::wstring> OptStr;
 #endif
     };
-
-    void Serialize(JValue& json, const std::shared_ptr<TestComplexObject>& value);
-    void Serialize(JValue& json, const TestComplexObject& value);
-    void Deserialize(const JValue& json, TestComplexObject& value);
-    void Deserialize(const JValue& json, std::shared_ptr<TestComplexObject>& value);
-
-    void Serialize(JValue& json, const TestComplexSubObject& value);
-    void Deserialize(const JValue& json, TestComplexSubObject& value);
 }
