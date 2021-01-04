@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <algorithm>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -9,6 +10,8 @@
 #if _HAS_CXX17 
 #define ENABLE_STD_OPTIONAL
 #include <optional>
+#define ENABLE_STRING_VIEW
+#include <string_view>
 #endif
 
 #if defined(_WRL_MODULE_H_) || defined(_WRL_IMPLEMENTS_H_) || defined(_WRL_CLIENT_H_)
@@ -49,8 +52,8 @@ namespace WDJ = ABI::Windows::Data::Json;
 #define JSON_VALUE_TYPE(type) WDJ::JsonValueType::JsonValueType_ ## type
 using WDJ_JsonObject = WDJ::IJsonObject;
 using WDJ_JsonArray = WDJ::IJsonArray;
-using WinRTString = HString;
-using WinRTStringRef = HStringReference;
+using WinRTString = Microsoft::WRL::Wrappers::HString;
+using WinRTStringRef = Microsoft::WRL::Wrappers::HStringReference;
 #endif
 
 class JValue;
@@ -99,17 +102,12 @@ namespace details::cx
         return WDJ::JsonValue::CreateStringValue(ref new Platform::String(value.data()));
     }
 
-    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const std::wstring& value)
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(std::wstring_view value)
     {
         return WDJ::JsonValue::CreateStringValue(ref new Platform::String(value.data()));
     }
 
-    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(std::wstring_view value)
-    {
-        return WDJ::JsonValue::CreateStringValue(ref new Platform::String(value.data()));
-    }
-
-    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(WinRTString^ value)
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(WinRTString^ value)
     {
         return WDJ::JsonValue::CreateStringValue(value);
     }
@@ -232,17 +230,12 @@ namespace details::cppwinrt
         return WDJ::JsonValue::CreateStringValue(value);
     }
 
-    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const std::wstring& value)
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(const std::wstring_view& value)
     {
         return WDJ::JsonValue::CreateStringValue(value);
     }
 
-    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const std::wstring_view& value)
-    {
-        return WDJ::JsonValue::CreateStringValue(value);
-    }
-
-    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue2(const WinRTString& value)
+    inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(const WinRTString& value)
     {
         return WDJ::JsonValue::CreateStringValue(value);
     }
@@ -400,6 +393,29 @@ namespace details
             return spResult;
         }
 
+#if defined(ENABLE_STRING_VIEW)
+        inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(std::wstring_view value)
+        {
+            MWRL::ComPtr<WDJ::IJsonValue> spResult;
+            THROW_IF_FAILED(JsonValueStaticsInstance()->CreateStringValue(MWRLW::HStringReference(value.data()).Get(), spResult.GetAddressOf()));
+            return spResult;
+        }
+#endif
+
+        inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(const WinRTString& value)
+        {
+            MWRL::ComPtr<WDJ::IJsonValue> spResult;
+            THROW_IF_FAILED(JsonValueStaticsInstance()->CreateStringValue(value.Get(), spResult.GetAddressOf()));
+            return spResult;
+        }
+
+        inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateStringValue(const WinRTStringRef& value)
+        {
+            MWRL::ComPtr<WDJ::IJsonValue> spResult;
+            THROW_IF_FAILED(JsonValueStaticsInstance()->CreateStringValue(value.Get(), spResult.GetAddressOf()));
+            return spResult;
+        }
+
         inline WINRT_OBJ_REF(WDJ::IJsonValue) CreateNullValue()
         {
             MWRL::ComPtr<WDJ::IJsonValueStatics2> spJsonValueStatics2;
@@ -443,6 +459,13 @@ namespace details
             MWRLW::HString value;
             THROW_IF_FAILED(target->GetString(value.GetAddressOf()));
             return value.GetRawBuffer(nullptr);
+        }
+
+        inline WinRTString GetWinRTString(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
+        {
+            MWRLW::HString value;
+            THROW_IF_FAILED(target->GetString(value.GetAddressOf()));
+            return value;
         }
 
         inline double GetNumber(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) target)
@@ -648,7 +671,9 @@ using has_raw_serialization =
 std::bool_constant < std::is_arithmetic_v<std::decay_t<_Ty>>
     || std::is_same_v<std::decay_t<_Ty>, wchar_t const*>
     || std::is_same_v<std::decay_t<_Ty>, std::wstring>
+#if defined(ENABLE_STRING_VIEW)
     || std::is_same_v<std::decay_t<_Ty>, std::wstring_view>
+#endif
     || std::is_same_v<std::decay_t<_Ty>, WINRT_OBJ_REF(WinRTString)>
     || std::is_same_v<std::decay_t<_Ty>, WinRTStringRef>
     || is_vector<_Ty>::value
@@ -1120,7 +1145,11 @@ struct RawSerializationTrait<wchar_t const*>
             throw std::invalid_argument("value");
         }
 
-        return DETAILS_NS::CreateStringValue2(std::wstring_view(value));
+#if defined(ENABLE_STRING_VIEW)
+        return DETAILS_NS::CreateStringValue(std::wstring_view(value));
+#else
+        return DETAILS_NS::CreateStringValue(std::wstring(value));
+#endif
     }
 
     wchar_t* deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
@@ -1134,7 +1163,7 @@ struct RawSerializationTrait<std::wstring>
 {
     WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const std::wstring& value)
     {
-        return DETAILS_NS::CreateStringValue2(value);
+        return DETAILS_NS::CreateStringValue(value);
     }
 
     std::wstring deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
@@ -1143,12 +1172,13 @@ struct RawSerializationTrait<std::wstring>
     }
 };
 
+#if defined(ENABLE_STRING_VIEW)
 template<>
 struct RawSerializationTrait<std::wstring_view>
 {
     WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const std::wstring_view& value)
     {
-        return DETAILS_NS::CreateStringValue2(value);
+        return DETAILS_NS::CreateStringValue(value);
     }
 
     std::wstring_view deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
@@ -1156,13 +1186,15 @@ struct RawSerializationTrait<std::wstring_view>
         throw std::logic_error("Converting to wstring_view is not safe");
     }
 };
+#endif
 
+#if !defined(USE_WRL)
 template<>
 struct RawSerializationTrait<WINRT_OBJ_REF(WinRTString)>
 {
     WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(WINRT_OBJ_CONST_REF(WinRTString) value)
     {
-        return DETAILS_NS::CreateStringValue2(value);
+        return DETAILS_NS::CreateStringValue(value);
     }
 
     WINRT_OBJ_REF(WinRTString) deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
@@ -1170,13 +1202,28 @@ struct RawSerializationTrait<WINRT_OBJ_REF(WinRTString)>
         return DETAILS_NS::GetWinRTString(value);
     }
 };
+#else
+template<>
+struct RawSerializationTrait<WinRTString>
+{
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const WinRTString& value)
+    {
+        return DETAILS_NS::CreateStringValue(value);
+    }
+
+    WinRTString deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)
+    {
+        return DETAILS_NS::GetWinRTString(value);
+    }
+};
+#endif
 
 template<>
 struct RawSerializationTrait<WinRTStringRef>
 {
-    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(WinRTStringRef value)
+    WINRT_OBJ_REF(WDJ::IJsonValue) serialize_raw(const WinRTStringRef& value)
     {
-        return DETAILS_NS::CreateStringValue2(value);
+        return DETAILS_NS::CreateStringValue(value);
     }
 
     WinRTStringRef deserialize_raw(WINRT_OBJ_CONST_REF(WDJ::IJsonValue) value)

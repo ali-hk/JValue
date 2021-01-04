@@ -126,6 +126,9 @@ namespace Tests
             auto strValueInput = ref new Platform::String(L"StrValue");
 #elif defined(CPPWINRT_VERSION)
             auto strValueInput = winrt::hstring(L"StrValue");
+#else
+            Microsoft::WRL::Wrappers::HString strValueInput;
+            WindowsCreateString(L"StrValue", 8, strValueInput.GetAddressOf());
 #endif
             JValue jvalue = strValueInput;
 
@@ -153,6 +156,9 @@ namespace Tests
 #elif defined(CPPWINRT_VERSION)
             auto strValueInput = winrt::hstring(L"StrValue");
             const winrt::hstring& strValueRef = strValueInput;
+#else
+            Microsoft::WRL::Wrappers::HString strValueInput;
+            WindowsCreateString(L"StrValue", 8, strValueInput.GetAddressOf());
 #endif
             JValue jvalue = strValueInput;
 
